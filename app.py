@@ -130,14 +130,10 @@ def search_venues():
     # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
     # seach for Hop should return "The Musical Hop".
     # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-    response = {
-        "count": 1,
-        "data": [{
-            "id": 2,
-            "name": "The Dueling Pianos Bar",
-            "num_upcoming_shows": 0,
-        }]
-    }
+    search_value = request.form.get('search_term')
+    search_result = (Venue.query.with_entities(Venue.id, Venue.name)
+                     .where(Venue.name.like('%' + search_value + '%'))).all()
+    response = {"count": len(search_result), "data": search_result}
     return render_template('pages/search_venues.html', results=response,
                            search_term=request.form.get('search_term', ''))
 
@@ -146,6 +142,36 @@ def search_venues():
 def show_venue(venue_id):
     # shows the venue page with the given venue_id
     # TODO: replace with real venue data from the venues table, using venue_id
+    query_result = (Venue.query.with_entities(Venue, Artist, Show)
+                    .join(Show, Venue.id == Show.venue_id)
+                    .join(Artist, Artist.id == Show.artist_id)
+                    .where(Venue.id == venue_id).all())
+    if len(query_result) == 0:
+        return render_template('pages/show_venue.html', venue={})
+    venue = Venue()
+    data = {
+        "id": venue[0][0].id,
+        "name": venue[0][0].name,
+        "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
+        "address": venue[0][0].address,
+        "city": venue[0][0].city,
+        "state": venue[0][0].state,
+        "phone": venue[0][0].phone,
+        "website": venue[0][0].website_link,
+        "facebook_link": venue[0][0].facebook_link,
+        "seeking_talent": venue[0][0].is_seeking_talent,
+        "seeking_description": venue[0][0].seeking_talent_message,
+        "image_link": venue[0][0].image_link,
+        "past_shows": [{
+            "artist_id": 4,
+            "artist_name": "Guns N Petals",
+            "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
+            "start_time": "2019-05-21T21:30:00.000Z"
+        }],
+        "upcoming_shows": [],
+        "past_shows_count": 1,
+        "upcoming_shows_count": 0
+    }
     data1 = {
         "id": 1,
         "name": "The Musical Hop",
@@ -223,8 +249,8 @@ def show_venue(venue_id):
         "past_shows_count": 1,
         "upcoming_shows_count": 1,
     }
-    data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
-    return render_template('pages/show_venue.html', venue=data)
+    result = list(filter(lambda d: d['id'] == venue_id, [data]))[0]
+    return render_template('pages/show_venue.html', venue=result)
 
 
 #  Create Venue
