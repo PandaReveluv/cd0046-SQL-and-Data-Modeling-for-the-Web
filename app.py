@@ -13,7 +13,7 @@ from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
-from sqlalchemy import func
+from sqlalchemy import func, exc
 
 from forms import *
 
@@ -276,12 +276,24 @@ def create_venue_form():
 def create_venue_submission():
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
-
-    # on successful db insert, flash success
-    flash('Venue ' + request.form['name'] + ' was successfully listed!')
-    # TODO: on unsuccessful db insert, flash an error instead.
-    # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
-    # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+    venue = Venue(id=None,
+                  name=request.form.get('name'),
+                  address=request.form.get('address'),
+                  city=request.form.get('city'),
+                  state=request.form.get('state'),
+                  phone=request.form.get('phone'),
+                  website=request.form.get('website_link'),
+                  facebook_link=request.form.get('facebook_link'),
+                  is_seeking_talent=True if request.form.get('seeking_talent') == 'y' else False,
+                  seeking_talent_message=request.form.get('seeking_talent_message'),
+                  image_link=request.form.get('image_link'))
+    db.session.add(venue)
+    try:
+        db.session.commit()
+        flash('Venue ' + venue.name + ' was successfully listed!')
+    except exc.SQLAlchemyError:
+        flash('An error occurred. Venue ' + venue.name + ' could not be listed.')
+        db.session.rollback()
     return render_template('pages/home.html')
 
 
