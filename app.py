@@ -46,15 +46,15 @@ class Venue(db.Model):
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
     website = db.Column(db.String(500))
-    is_seeking_talent = db.Column(db.Boolean())
-    seeking_talent_message = db.Column(db.String(500), nullable=True)
+    seeking_talent = db.Column(db.Boolean())
+    seeking_description = db.Column(db.String(500), nullable=True)
     past_shows = []
     upcoming_shows = []
     past_shows_count = 0
     upcoming_shows_count = 0
 
     def __init__(self, id, name, city, state, address, phone, image_link, facebook_link, website,
-                 is_seeking_talent, seeking_talent_message):
+                 seeking_talent, seeking_description):
         self.id = id
         self.name = name
         self.city = city
@@ -64,8 +64,8 @@ class Venue(db.Model):
         self.image_link = image_link
         self.facebook_link = facebook_link
         self.website = website
-        self.is_seeking_talent = is_seeking_talent
-        self.seeking_talent_message = seeking_talent_message
+        self.seeking_talent = seeking_talent
+        self.seeking_description = seeking_description
         self.past_shows = []
         self.upcoming_shows = []
 
@@ -217,8 +217,8 @@ def show_venue(venue_id):
                           phone=result[0].phone,
                           website=result[0].website,
                           facebook_link=result[0].facebook_link,
-                          is_seeking_talent=result[0].is_seeking_talent,
-                          seeking_talent_message=result[0].seeking_talent_message,
+                          seeking_talent=result[0].seeking_talent,
+                          seeking_description=result[0].seeking_description,
                           image_link=result[0].image_link)
         if result[1] is not None:
             artist = Artist(id=result[1].id,
@@ -276,17 +276,18 @@ def create_venue_form():
 def create_venue_submission():
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
+    form = VenueForm(request.form)
     venue = Venue(id=None,
-                  name=request.form.get('name'),
-                  address=request.form.get('address'),
-                  city=request.form.get('city'),
-                  state=request.form.get('state'),
-                  phone=request.form.get('phone'),
-                  website=request.form.get('website_link'),
-                  facebook_link=request.form.get('facebook_link'),
-                  is_seeking_talent=True if request.form.get('seeking_talent') == 'y' else False,
-                  seeking_talent_message=request.form.get('seeking_talent_message'),
-                  image_link=request.form.get('image_link'))
+                  name=form.name.data,
+                  address=form.address.data,
+                  city=form.city.data,
+                  state=form.state.data,
+                  phone=form.phone.data,
+                  website=form.website_link.data,
+                  facebook_link=form.facebook_link.data,
+                  seeking_talent=form.seeking_talent.data,
+                  seeking_description=form.seeking_description.data,
+                  image_link=form.image_link.data)
     try:
         db.session.add(venue)
         db.session.commit()
