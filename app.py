@@ -98,6 +98,10 @@ class Artist(db.Model):
     website = db.Column(db.String(500))
     seeking_venue = db.Column(db.Boolean())
     seeking_description = db.Column(db.String(500), nullable=True)
+    past_shows = []
+    upcoming_shows = []
+    past_shows_count = 0
+    upcoming_shows_count = 0
 
     def __init__(self, id, name, city, state, phone, genres, image_link, facebook_link, website, seeking_venue,
                  seeking_description):
@@ -112,6 +116,18 @@ class Artist(db.Model):
         self.website = website
         self.seeking_venue = seeking_venue
         self.seeking_description = seeking_description
+
+    class ShowInfo:
+        venue_id = int
+        venue_name = str
+        venue_image_link = str
+        start_time = str
+
+        def __init__(self, venue_id, venue_name, venue_image_link, start_time):
+            self.venue_id = venue_id
+            self.venue_name = venue_name
+            self.venue_image_link = venue_image_link
+            self.start_time = start_time
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
@@ -340,79 +356,72 @@ def search_artists():
 def show_artist(artist_id):
     # shows the artist page with the given artist_id
     # TODO: replace with real artist data from the artist table, using artist_id
-    data1 = {
-        "id": 4,
-        "name": "Guns N Petals",
-        "genres": ["Rock n Roll"],
-        "city": "San Francisco",
-        "state": "CA",
-        "phone": "326-123-5000",
-        "website": "https://www.gunsnpetalsband.com",
-        "facebook_link": "https://www.facebook.com/GunsNPetals",
-        "seeking_venue": True,
-        "seeking_description": "Looking for shows to perform at in the San Francisco Bay Area!",
-        "image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-        "past_shows": [{
-            "venue_id": 1,
-            "venue_name": "The Musical Hop",
-            "venue_image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60",
-            "start_time": "2019-05-21T21:30:00.000Z"
-        }],
-        "upcoming_shows": [],
-        "past_shows_count": 1,
-        "upcoming_shows_count": 0,
-    }
-    data2 = {
-        "id": 5,
-        "name": "Matt Quevedo",
-        "genres": ["Jazz"],
-        "city": "New York",
-        "state": "NY",
-        "phone": "300-400-5000",
-        "facebook_link": "https://www.facebook.com/mattquevedo923251523",
-        "seeking_venue": False,
-        "image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-        "past_shows": [{
-            "venue_id": 3,
-            "venue_name": "Park Square Live Music & Coffee",
-            "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
-            "start_time": "2019-06-15T23:00:00.000Z"
-        }],
-        "upcoming_shows": [],
-        "past_shows_count": 1,
-        "upcoming_shows_count": 0,
-    }
-    data3 = {
-        "id": 6,
-        "name": "The Wild Sax Band",
-        "genres": ["Jazz", "Classical"],
-        "city": "San Francisco",
-        "state": "CA",
-        "phone": "432-325-5432",
-        "seeking_venue": False,
-        "image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-        "past_shows": [],
-        "upcoming_shows": [{
-            "venue_id": 3,
-            "venue_name": "Park Square Live Music & Coffee",
-            "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
-            "start_time": "2035-04-01T20:00:00.000Z"
-        }, {
-            "venue_id": 3,
-            "venue_name": "Park Square Live Music & Coffee",
-            "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
-            "start_time": "2035-04-08T20:00:00.000Z"
-        }, {
-            "venue_id": 3,
-            "venue_name": "Park Square Live Music & Coffee",
-            "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
-            "start_time": "2035-04-15T20:00:00.000Z"
-        }],
-        "past_shows_count": 0,
-        "upcoming_shows_count": 3,
-    }
-    data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
-    return render_template('pages/show_artist.html', artist=data)
+    query_result = (Artist.query.with_entities(Venue, Artist, Show)
+                    .join(Show, Artist.id == Show.artist_id, full=True)
+                    .join(Venue, Venue.id == Show.venue_id, full=True)
+                    .where(Artist.id == artist_id).all())
+    if len(query_result) == 0:
+        return render_template('pages/show_venue.html', venue={})
+    # query_result [[Venue, Artist, Show]]
+    map_result = {}
+    for result in query_result:
+        venue = None
+        artist = None
+        show = None
+        show_info = None
+        if result[0] is not None:
+            venue = Venue(id=result[0].id,
+                          name=result[0].name,
+                          address=result[0].address,
+                          city=result[0].city,
+                          state=result[0].state,
+                          phone=result[0].phone,
+                          website=result[0].website,
+                          facebook_link=result[0].facebook_link,
+                          seeking_talent=result[0].seeking_talent,
+                          seeking_description=result[0].seeking_description,
+                          image_link=result[0].image_link)
+        if result[1] is not None:
+            artist = Artist(id=result[1].id,
+                            name=result[1].name,
+                            city=result[1].city,
+                            state=result[1].state,
+                            phone=result[1].phone,
+                            genres=result[1].genres.replace('{', '').replace('}', '').split(','),
+                            image_link=result[1].image_link,
+                            website=result[1].website,
+                            facebook_link=result[1].facebook_link,
+                            seeking_venue=result[1].seeking_venue,
+                            seeking_description=result[1].seeking_description)
+        if result[2] is not None:
+            show = Show(id=result[2].id,
+                        artist_id=result[2].artist_id,
+                        venue_id=result[2].venue_id,
+                        start_time=result[2].start_time)
+        if artist is not None and show is not None:
+            show_info = Artist.ShowInfo(venue_id=venue.id,
+                                        venue_name=venue.name,
+                                        venue_image_link=venue.image_link,
+                                        start_time=str(show.start_time))
+        if artist.id in map_result:
+            artist = map_result.get(artist.id)
+            if show.start_time < datetime.now():
+                artist.past_shows.append(show_info)
+                artist.past_shows_count = artist.past_shows_count + 1
+            else:
+                artist.upcoming_shows.append(show_info)
+                artist.upcoming_shows_count = artist.upcoming_shows_count + 1
+        else:
+            if show_info is not None:
+                if show.start_time < datetime.now():
+                    artist.past_shows.append(show_info)
+                    artist.past_shows_count = artist.past_shows_count + 1
+                else:
+                    artist.upcoming_shows.append(show_info)
+                    artist.upcoming_shows_count = artist.upcoming_shows_count + 1
+            map_result.update({artist.id: artist})
+    result = list(map_result.values())[0] if map_result.values() is not None else []
+    return render_template('pages/show_artist.html', artist=result)
 
 
 #  Update
