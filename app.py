@@ -96,11 +96,11 @@ class Artist(db.Model):
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
     website = db.Column(db.String(500))
-    is_seeking_venue = db.Column(db.Boolean())
-    seeking_venue_message = db.Column(db.String(500), nullable=True)
+    seeking_venue = db.Column(db.Boolean())
+    seeking_description = db.Column(db.String(500), nullable=True)
 
-    def __init__(self, id, name, city, state, phone, genres, image_link, facebook_link, website, is_seeking_venue,
-                 seeking_venue_message):
+    def __init__(self, id, name, city, state, phone, genres, image_link, facebook_link, website, seeking_venue,
+                 seeking_description):
         self.id = id
         self.name = name
         self.city = city
@@ -110,8 +110,8 @@ class Artist(db.Model):
         self.image_link = image_link
         self.facebook_link = facebook_link
         self.website = website
-        self.is_seeking_venue = is_seeking_venue
-        self.seeking_venue_message = seeking_venue_message
+        self.seeking_venue = seeking_venue
+        self.seeking_description = seeking_description
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
@@ -230,8 +230,8 @@ def show_venue(venue_id):
                             image_link=result[1].image_link,
                             website=result[1].website,
                             facebook_link=result[1].facebook_link,
-                            is_seeking_venue=result[1].is_seeking_venue,
-                            seeking_venue_message=result[1].seeking_venue_message)
+                            seeking_venue=result[1].seeking_venue,
+                            seeking_description=result[1].seeking_description)
         if result[2] is not None:
             show = Show(id=result[2].id,
                         artist_id=result[2].artist_id,
@@ -487,16 +487,17 @@ def create_artist_submission():
     # called upon submitting the new artist listing form
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
+    form = ArtistForm(request.form)
     artist = Artist(id=None,
-                    name=request.form.get('name'),
-                    city=request.form.get('city'),
-                    state=request.form.get('state'),
-                    phone=request.form.get('phone'),
-                    genres=request.form.get('genres'),
-                    website=request.form.get('website_link'),
-                    facebook_link=request.form.get('facebook_link'),
-                    is_seeking_venue=True if request.form.get('is_seeking_venue') == 'y' else False,
-                    seeking_venue_message=request.form.get('seeking_venue_message'),
+                    name=form.name.data,
+                    city=form.city.data,
+                    state=form.state.data,
+                    phone=form.phone.data,
+                    genres=form.genres.data,
+                    website=form.website_link.data,
+                    facebook_link=form.facebook_link.data,
+                    seeking_venue=form.seeking_venue.data,
+                    seeking_description=form.seeking_description.data,
                     image_link=request.form.get('image_link'))
     try:
         db.session.add(artist)
