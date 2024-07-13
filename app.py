@@ -1,8 +1,6 @@
 #----------------------------------------------------------------------------#
 # Imports
 #----------------------------------------------------------------------------#
-
-import json
 import dateutil.parser
 import datetime
 import babel
@@ -48,13 +46,14 @@ class Venue(db.Model):
     website = db.Column(db.String(500))
     seeking_talent = db.Column(db.Boolean())
     seeking_description = db.Column(db.String(500), nullable=True)
+    genres = db.Column(db.String(120))
     past_shows = []
     upcoming_shows = []
     past_shows_count = 0
     upcoming_shows_count = 0
 
     def __init__(self, id, name, city, state, address, phone, image_link, facebook_link, website,
-                 seeking_talent, seeking_description):
+                 seeking_talent, seeking_description, genres):
         self.id = id
         self.name = name
         self.city = city
@@ -66,6 +65,7 @@ class Venue(db.Model):
         self.website = website
         self.seeking_talent = seeking_talent
         self.seeking_description = seeking_description
+        self.genres = genres
         self.past_shows = []
         self.upcoming_shows = []
 
@@ -199,9 +199,9 @@ def search_venues():
     # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
     # seach for Hop should return "The Musical Hop".
     # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-    search_value = request.form.get('search_term')
+    search_value = request.form.get('search_term').lower()
     search_result = (Venue.query.with_entities(Venue.id, Venue.name)
-                     .where(Venue.name.like('%' + search_value + '%'))).all()
+                     .where(func.lower(Venue.name.like('%' + search_value + '%')))).all()
     response = {"count": len(search_result), "data": search_result}
     return render_template('pages/search_venues.html', results=response,
                            search_term=request.form.get('search_term', ''))
@@ -235,14 +235,15 @@ def show_venue(venue_id):
                           facebook_link=result[0].facebook_link,
                           seeking_talent=result[0].seeking_talent,
                           seeking_description=result[0].seeking_description,
-                          image_link=result[0].image_link)
+                          image_link=result[0].image_link,
+                          genres=result[0].genres.replace('{', '').replace('}', '').split(','))
         if result[1] is not None:
             artist = Artist(id=result[1].id,
                             name=result[1].name,
                             city=result[1].city,
                             state=result[1].state,
                             phone=result[1].phone,
-                            genres=result[1].genres,
+                            genres=result[1].genres.replace('{', '').replace('}', '').split(','),
                             image_link=result[1].image_link,
                             website=result[1].website,
                             facebook_link=result[1].facebook_link,
@@ -303,7 +304,8 @@ def create_venue_submission():
                   facebook_link=form.facebook_link.data,
                   seeking_talent=form.seeking_talent.data,
                   seeking_description=form.seeking_description.data,
-                  image_link=form.image_link.data)
+                  image_link=form.image_link.data,
+                  genres=form.genres.data)
     try:
         db.session.add(venue)
         db.session.commit()
@@ -457,20 +459,18 @@ def edit_artist_submission(artist_id):
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
     form = VenueForm()
-    venue = {
-        "id": 1,
-        "name": "The Musical Hop",
-        "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
-        "address": "1015 Folsom Street",
-        "city": "San Francisco",
-        "state": "CA",
-        "phone": "123-123-1234",
-        "website": "https://www.themusicalhop.com",
-        "facebook_link": "https://www.facebook.com/TheMusicalHop",
-        "seeking_talent": True,
-        "seeking_description": "We are on the lookout for a local artist to play every two weeks. Please call us.",
-        "image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60"
-    }
+    venue = Venue.query.where(Venue.id == venue_id).first()
+    form.name.data = venue.name
+    form.address.data = venue.address
+    form.city.data = venue.city
+    form.state.data = venue.state
+    form.phone.data = venue.phone
+    form.website_link.data = venue.website
+    form.facebook_link.data = venue.facebook_link
+    form.seeking_talent.data = venue.seeking_talent
+    form.seeking_description.data = venue.seeking_description
+    form.image_link.data = venue.image_link
+    form.genres.data = venue.genres.replace('{', '').replace('}', '').split(',')
     # TODO: populate form with values from venue with ID <venue_id>
     return render_template('forms/edit_venue.html', form=form, venue=venue)
 
@@ -479,6 +479,26 @@ def edit_venue(venue_id):
 def edit_venue_submission(venue_id):
     # TODO: take values from the form submitted, and update existing
     # venue record with ID <venue_id> using the new attributes
+    form = VenueForm(request.form)
+    # TODO: populate form with values from venue with ID <venue_id>
+    try:
+        existed_venue = db.session.query(Venue).get(venue_id)
+        existed_venue.name = form.name.data
+        existed_venue.address = form.address.data
+        existed_venue.city = form.city.data
+        existed_venue.state = form.state.data
+        existed_venue.phone = form.phone.data
+        existed_venue.website = form.website_link.data
+        existed_venue.facebook_link = form.facebook_link.data
+        existed_venue.seeking_talent = form.seeking_talent.data
+        existed_venue.seeking_description = form.seeking_description.data
+        existed_venue.image_link = form.image_link.data
+        existed_venue.genres = form.genres.data
+        db.session.commit()
+        flash('Venue id ' + str(venue_id) + ' was successfully updated!')
+    except exc.SQLAlchemyError:
+        flash('An error occurred. Venue id ' + str(venue_id) + ' could not be updated.')
+        db.session.rollback()
     return redirect(url_for('show_venue', venue_id=venue_id))
 
 
