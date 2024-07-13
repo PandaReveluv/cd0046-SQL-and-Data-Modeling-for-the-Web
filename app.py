@@ -187,11 +187,11 @@ def venues():
     for city, state, count_id in group_by_city_and_state:
         venues_value = (Venue.query
                         .with_entities(Venue.id, Venue.name)
-                        .where(Venue.city == city and Venue.state == state).all())
+                        .where((Venue.city == city) & (Venue.state == state)).all())
         data.append({"city": city, "state": state, "venues": venues_value})
 
     app.logger.info("Getting venues info: %s", data)
-    return render_template('pages/venues.html', areas=data);
+    return render_template('pages/venues.html', areas=data)
 
 
 @app.route('/venues/search', methods=['POST'])
@@ -294,6 +294,9 @@ def create_venue_submission():
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
     form = VenueForm(request.form)
+    if not form.validate():
+        flash(str(form.errors))
+        return render_template('forms/new_venue.html', form=form)
     venue = Venue(id=None,
                   name=form.name.data,
                   address=form.address.data,
@@ -382,7 +385,8 @@ def show_artist(artist_id):
                           facebook_link=result[0].facebook_link,
                           seeking_talent=result[0].seeking_talent,
                           seeking_description=result[0].seeking_description,
-                          image_link=result[0].image_link)
+                          image_link=result[0].image_link,
+                          genres=result[0].genres.replace('{', '').replace('}', '').split(','))
         if result[1] is not None:
             artist = Artist(id=result[1].id,
                             name=result[1].name,
@@ -431,19 +435,17 @@ def show_artist(artist_id):
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
     form = ArtistForm()
-    artist = {
-        "id": 4,
-        "name": "Guns N Petals",
-        "genres": ["Rock n Roll"],
-        "city": "San Francisco",
-        "state": "CA",
-        "phone": "326-123-5000",
-        "website": "https://www.gunsnpetalsband.com",
-        "facebook_link": "https://www.facebook.com/GunsNPetals",
-        "seeking_venue": True,
-        "seeking_description": "Looking for shows to perform at in the San Francisco Bay Area!",
-        "image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80"
-    }
+    artist = Artist.query.where(Artist.id == artist_id).first()
+    form.name.data = artist.name
+    form.city.data = artist.city
+    form.state.data = artist.state
+    form.phone.data = artist.phone
+    form.website_link.data = artist.website
+    form.facebook_link.data = artist.facebook_link
+    form.seeking_venue.data = artist.seeking_venue
+    form.seeking_description.data = artist.seeking_description
+    form.image_link.data = artist.image_link
+    form.genres.data = artist.genres.replace('{', '').replace('}', '').split(',')
     # TODO: populate form with fields from artist with ID <artist_id>
     return render_template('forms/edit_artist.html', form=form, artist=artist)
 
@@ -452,7 +454,27 @@ def edit_artist(artist_id):
 def edit_artist_submission(artist_id):
     # TODO: take values from the form submitted, and update existing
     # artist record with ID <artist_id> using the new attributes
-
+    form = ArtistForm(request.form)
+    if not form.validate():
+        flash(str(form.errors))
+        return redirect(url_for('edit_artist', artist_id=artist_id))
+    try:
+        existed_artist = db.session.query(Artist).get(artist_id)
+        existed_artist.name = form.name.data
+        existed_artist.city = form.city.data
+        existed_artist.state = form.state.data
+        existed_artist.phone = form.phone.data
+        existed_artist.website = form.website_link.data
+        existed_artist.facebook_link = form.facebook_link.data
+        existed_artist.seeking_venue = form.seeking_venue.data
+        existed_artist.seeking_description = form.seeking_description.data
+        existed_artist.image_link = form.image_link.data
+        existed_artist.genres = form.genres.data
+        db.session.commit()
+        flash('Venue id ' + str(artist_id) + ' was successfully updated!')
+    except exc.SQLAlchemyError:
+        flash('An error occurred. Venue id ' + str(artist_id) + ' could not be updated.')
+        db.session.rollback()
     return redirect(url_for('show_artist', artist_id=artist_id))
 
 
@@ -480,7 +502,9 @@ def edit_venue_submission(venue_id):
     # TODO: take values from the form submitted, and update existing
     # venue record with ID <venue_id> using the new attributes
     form = VenueForm(request.form)
-    # TODO: populate form with values from venue with ID <venue_id>
+    if not form.validate():
+        flash(str(form.errors))
+        return redirect(url_for('edit_venue', venue_id=venue_id))
     try:
         existed_venue = db.session.query(Venue).get(venue_id)
         existed_venue.name = form.name.data
@@ -517,6 +541,9 @@ def create_artist_submission():
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
     form = ArtistForm(request.form)
+    if not form.validate():
+        flash(str(form.errors))
+        return render_template('forms/new_artist.html', form=form)
     artist = Artist(id=None,
                     name=form.name.data,
                     city=form.city.data,
