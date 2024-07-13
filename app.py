@@ -7,13 +7,12 @@ import dateutil.parser
 import datetime
 import babel
 import sqlalchemy
-from flask import Flask, render_template, request, Response, flash, redirect, url_for
+from flask import Flask, render_template, request, flash, redirect, url_for
 from flask_migrate import Migrate
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
-from flask_wtf import Form
 from sqlalchemy import func, exc
 
 from forms import *
@@ -549,12 +548,20 @@ def create_shows():
 def create_show_submission():
     # called to create new shows in the db, upon submitting new show listing form
     # TODO: insert form data as a new Show record in the db, instead
-
-    # on successful db insert, flash success
-    flash('Show was successfully listed!')
-    # TODO: on unsuccessful db insert, flash an error instead.
-    # e.g., flash('An error occurred. Show could not be listed.')
-    # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+    form = ShowForm(request.form)
+    show_id = db.session.execute(sqlalchemy.select(func.next_value(sqlalchemy.Sequence('Show_id_seq')))).first()[0]
+    show = Show(id=show_id,
+                venue_id=form.venue_id.data,
+                artist_id=form.artist_id.data,
+                start_time=form.start_time.data)
+    try:
+        db.session.add(show)
+        db.session.commit()
+        flash('Show was successfully listed!')
+    except exc.SQLAlchemyError as e:
+        logging.error('Error at creating show: %s', repr(e))
+        flash('An error occurred. Show could not be listed.')
+        db.session.rollback()
     return render_template('pages/home.html')
 
 
